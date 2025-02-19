@@ -1,0 +1,176 @@
+openai_spec_version: 3.1.0
+
+info:
+  title: Card Grading API
+  description: An API to grade basketball cards based on front and back images.
+  version: 1.0.0
+
+servers:
+  - url: "https://localhost"  # Adjusted to match the correct protocol and origin
+
+paths:
+  /grade_card:
+    post:
+      summary: Grade a basketball card by analyzing front and back images.
+      operationId: gradeCard
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                front_image_path:
+                  type: string
+                  description: The file path or URL to the front image of the card.
+                back_image_path:
+                  type: string
+                  description: The file path or URL to the back image of the card.
+      responses:
+        '200':
+          description: A JSON object containing the grading result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  final_grade:
+                    type: number
+                    description: The final grade for the card.
+                  grades:
+                    type: object
+                    properties:
+                      Centering:
+                        type: number
+                        description: Grade for centering.
+                      Corners:
+                        type: number
+                        description: Grade for corners.
+                      Surface:
+                        type: number
+                        description: Grade for surface.
+                      Edges:
+                        type: number
+                        description: Grade for edges.
+
+components:
+  schemas:
+    GradeRequest:
+      type: object
+      properties:
+        front_image_path:
+          type: string
+        back_image_path:
+          type: string
+    GradeResponse:
+      type: object
+      properties:
+        final_grade:
+          type: number
+        grades:
+          type: object
+          properties:
+            Centering:
+              type: number
+            Corners:
+              type: number
+            Surface:
+              type: number
+            Edges:
+              type: number
+
+functions:
+  - name: grade_card_images
+    description: Grades a basketball card based on the front and back images.
+    code: |
+      import cv2
+      import numpy as np
+
+      class CardGrader:
+          def __init__(self, front_image_path, back_image_path):
+              self.front_image = cv2.imread(front_image_path)
+              self.back_image = cv2.imread(back_image_path)
+
+          def grade_centering(self, image):
+              gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+              edges = cv2.Canny(gray, 50, 150)
+              contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+              contour = max(contours, key=cv2.contourArea)
+              x, y, w, h = cv2.boundingRect(contour)
+              image_center_x = image.shape[1] // 2
+              image_center_y = image.shape[0] // 2
+              contour_center_x = x + w // 2
+              contour_center_y = y + h // 2
+              center_offset = np.sqrt((image_center_x - contour_center_x) ** 2 + (image_center_y - contour_center_y) ** 2)
+              max_offset = np.sqrt(image_center_x ** 2 + image_center_y ** 2)
+              centering_score = 10 * (1 - center_offset / max_offset)
+              return round(centering_score, 1)
+
+          def grade_corners(self, image):
+              corners = cv2.goodFeaturesToTrack(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), 4, 0.01, 10)
+              corners = np.int0(corners)
+              corner_damage = 0
+              for corner in corners:
+                  x, y = corner.ravel()
+                  if x < 5 or y < 5 or x > image.shape[1] - 5 or y > image.shape[0] - 5:
+                      corner_damage += 1
+              corners_score = 10 - corner_damage * 2.5
+              return round(max(corners_score, 1), 1)
+
+          def grade_surface(self, image):
+              blurred = cv2.GaussianBlur(image, (5, 5), 0)
+              diff = cv2.absdiff(image, blurred)
+              mean_diff = np.mean(diff)
+              if mean_diff < 5:
+                  surface_score = 10
+              elif mean_diff < 10:
+                  surface_score = 9
+              elif mean_diff < 15:
+                  surface_score = 8
+              else:
+                  surface_score = 7
+              return round(surface_score, 1)
+
+          def grade_edges(self, image):
+              edges = cv2.Canny(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), 100, 200)
+              edge_sum = np.sum(edges)
+              if edge_sum < 1000:
+                  edges_score = 10
+              elif edge_sum < 2000:
+                  edges_score = 9
+              elif edge_sum < 3000:
+                  edges_score = 8
+              else:
+                  edges_score = 7
+              return round(edges_score, 1)
+
+          def grade_side(self, image):
+              centering = self.grade_centering(image)
+              corners = self.grade_corners(image)
+              surface = self.grade_surface(image)
+              edges = self.grade_edges(image)
+              return {
+                  "Centering": centering,
+                  "Corners": corners,
+                  "Surface": surface,
+                  "Edges": edges
+              }
+
+          def grade_card(self):
+              front_grades = self.grade_side(self.front_image)
+              back_grades = self.grade_side(self.back_image)
+              combined_grades = {
+                  "Centering": (front_grades["Centering"] + back_grades["Centering"]) / 2,
+                  "Corners": (front_grades["Corners"] + back_grades["Corners"]) / 2,
+                  "Surface": (front_grades["Surface"] + back_grades["Surface"]) / 2,
+                  "Edges": (front_grades["Edges"] + back_grades["Edges"]) / 2,
+              }
+              final_grade = round(sum(combined_grades.values()) / 4, 1)
+              return {
+                  "final_grade": final_grade,
+                  "grades": combined_grades
+              }
+
+      def grade_card_images(front_image_path, back_image_path):
+          grader = CardGrader(front_image_path, back_image_path)
+          result = grader.grade_card()
+          return result

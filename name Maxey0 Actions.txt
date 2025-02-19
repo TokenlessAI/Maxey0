@@ -1,0 +1,75 @@
+name: Maxey0 Actions
+description: Actions for managing Maxey0 initialization and processing.
+actions:
+  - name: Initialize Maxey0
+    description: This action initializes the Maxey0 in-memory vector graph from a CSV file.
+    inputs:
+      csv_file_path:
+        description: The path to the CSV file.
+        required: true
+        type: string
+    run:
+      script: |
+        import pandas as pd
+        
+        file_path = inputs.csv_file_path
+        data = pd.read_csv(file_path)
+        
+        vector_graph = {index: row.to_dict() for index, row in data.iterrows()}
+        return vector_graph
+
+  - name: Maximum Depth QRQ
+    description: This action performs Maximum Depth QRQ on training data, the Knowledge CSV, and the web when [Maxey0] is entered.
+    inputs:
+      query:
+        description: The query to refine and process.
+        required: true
+        type: string
+    run:
+      script: |
+        import pandas as pd
+        from urllib import request
+        import json
+
+        def load_csv(file_path):
+            return pd.read_csv(file_path)
+
+        def fetch_web_data(query):
+            # This is a placeholder for actual web fetching logic
+            # In reality, you would use an API call to fetch data from the web
+            search_url = f"http://example.com/search?q={query}"
+            response = request.urlopen(search_url)
+            return json.load(response)
+        
+        # Load training data
+        training_data = load_csv('/mnt/data/generated_smaller_diverse_dataset.csv')
+
+        # Fetch additional data from the web
+        web_data = fetch_web_data(inputs.query)
+
+        # Combine data sources
+        combined_data = {
+            "training_data": training_data.to_dict(orient="records"),
+            "web_data": web_data
+        }
+
+        # Implement Maximum Depth QRQ logic here (simplified)
+        refined_query = f"Refined results for {inputs.query}"
+
+        return {
+            "refined_query": refined_query,
+            "data": combined_data
+        }
+
+  - name: SomeOtherAction
+    description: This is a placeholder for another action.
+    inputs:
+      param1:
+        description: Description of param1.
+        required: true
+        type: string
+    run:
+      script: |
+        # Placeholder script for another action
+        result = f"Processing {inputs.param1}"
+        return result

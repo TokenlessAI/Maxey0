@@ -56,6 +56,7 @@ Maxey0/
 │ └── agents/
 │ ├── maxey_agents.cypher
 │ └── agents_metadata.json
+│ └── seed_120_agents.cypher
 ├── docs/
 │ ├── architecture.md
 │ ├── agent_lifecycle.md
@@ -322,3 +323,4 @@ See the included [`LICENSE`](LICENSE) file for full text.
 ---
 
 _Updated: 2025-08-12_
+
